@@ -1,194 +1,222 @@
-// TODO: translate python/script.py from python into C to be able to use 
-/*
-class SerialEvent(Enum):
-    Nothing = 0
-    OK = 1
-    Ring = 2
-    Tone = 3
-    Disconnect = 4
-*/
-// Represents serial events
-enum SerialEvent {  NOTHING = 0, 
-        OK = 1, 
-        RING = 2, 
-        TONE = 3, 
-        DISCONNECT = 4
-    };
+#include "rpi.h"
+#include "usb/a2_usb_core.h"
+#include "usb/a1_cdc_acm.h"
 
-/*
-OUT_OK = b'\r\nOK\r\n'
-OUT_RING = b'\x10R\r\n'
-OUT_DISCON = b'\x10d'
-OUT_BUSY = b'\x10b'
-OUT_DTMF = b'\x10/'
-*/
-const char OUT_OK[]     = "\r\nOK\r\n";
-const char OUT_RING[]   = "\x10R\r\n";
-const char OUT_DISCON[] = "\x10d";
-const char OUT_BUSY[]   = "\x10b";
-const char OUT_DTMF[]   = "\x10/";
+typedef enum {
+    SerialEvent_Nothing = 0,
+    SerialEvent_OK = 1,
+    SerialEvent_Ring = 2,
+    SerialEvent_Tone = 3,
+    SerialEvent_Disconnect = 4,
+} SerialEvent;
 
-struct AnsweringMachine {
-    serial; //TODO type
-    buffer;
-    tones; 
+static const unsigned char OUT_OK[] = { '\r', '\n', 'O', 'K', '\r', '\n' };
+static const unsigned char OUT_RING[] = { 0x10, 'R', '\r', '\n' };
+static const unsigned char OUT_DTMF[] = { 0x10, '/' };
+static const unsigned char OUT_DISCON[] = { 0x10, 'd' };
+static const unsigned char OUT_BUSY[] = { 0x10, 'b' };
+
+typedef struct {
+    unsigned char buf[2048];
+    unsigned buf_len;
+    char tones[32];
+    unsigned tones_len;
 } AnsweringMachine;
 
-AnsweringMachine initialize_answering_machine(TODO serial) {
-    /* 
-    def __init__(self, serial: serial.Serial):
-        self.serial = serial
-        self.buffer = b''
-        self.tones = ''
-    */
-   AnsweringMachine am;
-   am.serial = TODO; // = inputted serial
-   am.buffer = TODO; // = empty buffer of bytes 
-   am.tones = TODO;  // = empty string
-
-   return am;
+static void am_consume_prefix(AnsweringMachine* am, unsigned n) {
+    if (n == 0) return;
+    if (n >= am->buf_len) {
+        am->buf_len = 0;
+        return;
+    }
+    for (unsigned i = 0; i + n < am->buf_len; i++) {
+        am->buf[i] = am->buf[i + n];
+    }
+    am->buf_len -= n;
 }
 
-// returns serial event enum 0, 1, 2, 3, or 4
-uint32_t event(struct AnsweringMachine am) {
-    // data = self.serial.read(1024)
-    // if data:
-    //     print(f"IN:\t{repr(data.decode())[1:-1]}")
-
-    // self.buffer += data
-
-    // if self.buffer.startswith(OUT_OK):
-    //     self.buffer = self.buffer[len(OUT_OK):]
-    //     return SerialEvent.OK
-    return OK;
-
-    // if self.buffer.startswith(OUT_RING):
-    //     self.buffer = self.buffer[len(OUT_RING):]
-    //     return SerialEvent.Ring
-    return RING;
-
-    // if self.buffer.startswith(OUT_DTMF) and len(self.buffer) >= 6:
-    // // chr returns single character string 
-    //     self.tones += chr(self.buffer[3])
-    //     self.buffer = self.buffer[6:]
-    //     return SerialEvent.Tone
-    return TONE;
-
-    // if self.buffer.startswith(OUT_DISCON):
-    //     self.buffer = self.buffer[len(OUT_DISCON):]
-    //     return SerialEvent.Disconnect
-    return DISCONNECT;
-
-    // if self.buffer.startswith(OUT_BUSY):
-    //     self.buffer = self.buffer[len(OUT_BUSY):]
-    //     return SerialEvent.Disconnect
-    return DISCONNECT;
-
-    // # Otherwise, consume up to and including the first '\r'
-    // idx = self.buffer.find(b'\r')
-    // if idx >= 0:
-    //     self.buffer = self.buffer[idx + 1:]
-
-    // return SerialEvent.Nothing
-    return NOTHING;
-}
-
-
-void wait_for(AnsweringMachine& am, enum SerialEvent evt) {
-    while (event(am) != evt) {
-        ;
+static void am_append_rx(AnsweringMachine* am, const unsigned char* data, unsigned n) {
+    if (n == 0) return;
+    if (n > sizeof(am->buf) - 1) {
+        // Extremely unlikely: reset if the modem bursts too much data.
+        am->buf_len = 0;
+    }
+    if (am->buf_len + n > sizeof(am->buf)) {
+        // Avoid overflow; drop buffered prefix rather than crash.
+        am->buf_len = 0;
+    }
+    unsigned copy_n = n;
+    if (copy_n > sizeof(am->buf) - am->buf_len) {
+        copy_n = sizeof(am->buf) - am->buf_len;
+    }
+    for (unsigned i = 0; i < copy_n; i++) {
+        am->buf[am->buf_len++] = data[i];
     }
 }
 
-void send_command(struct AnsweringMachine am, const char* cmd) {
-    printk("OUT:\t%s\n", cmd);
+static SerialEvent am_event(AnsweringMachine* am) {
+    unsigned char tmp[256];
+    int n = cdc_read((char*)tmp, sizeof(tmp));
+    if (n > 0) {
+        printk("IN:\t");
+        for (int i = 0; i < n; i++) printk("%c", tmp[i]);
+        printk("\n");
+        am_append_rx(am, tmp, (unsigned)n);
+    }
 
-    //!self.serial.write(cmd.encode() + b'\r')
-    //TODO
+    // Match prefixes in the same order as the Python version.
+    if (am->buf_len >= sizeof(OUT_OK) && memcmp(am->buf, OUT_OK, sizeof(OUT_OK)) == 0) {
+        am_consume_prefix(am, sizeof(OUT_OK));
+        return SerialEvent_OK;
+    }
 
-    //!self.wait_for(SerialEvent.OK)
-    //TODO
+    if (am->buf_len >= sizeof(OUT_RING) && memcmp(am->buf, OUT_RING, sizeof(OUT_RING)) == 0) {
+        am_consume_prefix(am, sizeof(OUT_RING));
+        return SerialEvent_Ring;
+    }
+
+    if (am->buf_len >= 6 && memcmp(am->buf, OUT_DTMF, sizeof(OUT_DTMF)) == 0) {
+        // Python: self.tones += chr(self.buffer[3]); self.buffer = self.buffer[6:]
+        unsigned char digit = am->buf[3];
+        if (am->tones_len + 1 < sizeof(am->tones)) {
+            am->tones[am->tones_len++] = (char)digit;
+            am->tones[am->tones_len] = 0;
+        }
+        am_consume_prefix(am, 6);
+        return SerialEvent_Tone;
+    }
+
+    if (am->buf_len >= sizeof(OUT_DISCON) && memcmp(am->buf, OUT_DISCON, sizeof(OUT_DISCON)) == 0) {
+        am_consume_prefix(am, sizeof(OUT_DISCON));
+        return SerialEvent_Disconnect;
+    }
+
+    if (am->buf_len >= sizeof(OUT_BUSY) && memcmp(am->buf, OUT_BUSY, sizeof(OUT_BUSY)) == 0) {
+        am_consume_prefix(am, sizeof(OUT_BUSY));
+        return SerialEvent_Disconnect;
+    }
+
+    // Otherwise, consume up to and including the first '\r'.
+    int idx = -1;
+    for (unsigned i = 0; i < am->buf_len; i++) {
+        if (am->buf[i] == '\r') {
+            idx = (int)i;
+            break;
+        }
+    }
+    if (idx >= 0) {
+        am_consume_prefix(am, (unsigned)idx + 1);
+    }
+
+    return SerialEvent_Nothing;
 }
 
+static void am_wait_for(AnsweringMachine* am, SerialEvent target) {
+    while (am_event(am) != target) {
+        // Busy-wait, but avoid a hot spin.
+        delay_ms(1);
+    }
+}
 
-    def play_brandenburg(self):
-        commands = [
-            "AT+VTS=[784,784,20]",
-            "AT+VTS=[739,739,20]",
-            "AT+VTS=[784,784,40]",
+static void am_send_command(AnsweringMachine* am, const char* cmd) {
+    printk("OUT:\t%s\n", cmd);
+    cdc_write(cmd, (unsigned)strlen(cmd));
+    cdc_write("\r", 1);
+}
 
-            "AT+VTS=[587,587,20]",
-            "AT+VTS=[523,523,20]",
-            "AT+VTS=[587,587,40]",
+static void am_send_command_and_wait_ok(AnsweringMachine* am, const char* cmd) {
+    am_send_command(am, cmd);
+    am_wait_for(am, SerialEvent_OK);
+}
 
-            "AT+VTS=[784,784,20]",
-            "AT+VTS=[739,739,20]",
-            "AT+VTS=[784,784,40]",
+static void play_brandenburg(AnsweringMachine* am) {
+    // Same command list as `code/python/script.py`.
+    static const char* commands[] = {
+        "AT+VTS=[784,784,20]",
+        "AT+VTS=[739,739,20]",
+        "AT+VTS=[784,784,40]",
+        "AT+VTS=[587,587,20]",
+        "AT+VTS=[523,523,20]",
+        "AT+VTS=[587,587,40]",
+        "AT+VTS=[784,784,20]",
+        "AT+VTS=[739,739,20]",
+        "AT+VTS=[784,784,40]",
+        "AT+VTS=[493,493,20]",
+        "AT+VTS=[440,440,20]",
+        "AT+VTS=[493,493,40]",
+        "AT+VTS=[784,784,20]",
+        "AT+VTS=[739,739,20]",
+        "AT+VTS=[784,784,40]",
+        "AT+VTS=[392,392,20]",
+        "AT+VTS=[440,440,20]",
+        "AT+VTS=[493,493,40]",
+        "AT+VTS=[554,554,40]",
+        "AT+VTS=[587,587,20]",
+        "AT+VTS=[554,554,20]",
+        "AT+VTS=[587,587,20]",
+        "AT+VTS=[659,659,20]",
+        "AT+VTS=[587,587,20]",
+        "AT+VTS=[739,739,20]",
+        "AT+VTS=[587,587,20]",
+        "AT+VTS=[784,784,20]",
+    };
 
-            "AT+VTS=[493,493,20]",
-            "AT+VTS=[440,440,20]",
-            "AT+VTS=[493,493,40]",
+    for (unsigned i = 0; i < (unsigned)(sizeof(commands) / sizeof(commands[0])); i++) {
+        am_send_command_and_wait_ok(am, commands[i]);
+    }
+}
 
-            "AT+VTS=[784,784,20]",
-            "AT+VTS=[739,739,20]",
-            "AT+VTS=[784,784,40]",
+void notmain(void) {
+    uart_init();  // so we can print debug to console
+    printk("STARTING DOOR UNLOCK SCRIPT\n");
 
-            "AT+VTS=[392,392,20]",
-            "AT+VTS=[440,440,20]",
-            "AT+VTS=[493,493,40]",
-            "AT+VTS=[554,554,40]",
+    usb_init();
+    if (usb_enumerate() < 0) {
+        panic("usb enumerate failed :(");
+    }
 
-            "AT+VTS=[587,587,20]",
-            "AT+VTS=[554,554,20]",
-            "AT+VTS=[587,587,20]",
-            "AT+VTS=[659,659,20]",
-            "AT+VTS=[587,587,20]",
-            "AT+VTS=[739,739,20]",
-            "AT+VTS=[587,587,20]",
-            "AT+VTS=[784,784,20]",
-        ]
+    if (cdc_init() < 0) {
+        panic("cdc init failed :((((");
+    }
 
-        for cmd in commands:
-            self.send_command(cmd)
+    printk("CDC all set!!!\n");
 
-    def run(self) -> None:
-        while True:
-            # Reset the modem state
-            self.tones = ""
-            disconnected = False
+    AnsweringMachine am;
+    am.buf_len = 0;
+    am.tones_len = 0;
+    am.tones[0] = 0;
 
-            self.send_command("AT&F")
-            self.send_command("ATE0")
-            self.send_command("ATH")
-            self.send_command("ATS0=1")
-            self.send_command("AT+FCLASS=8")
-            self.send_command("AT+VLS=0")
+    while (1) {
+        // Reset state at the top of each run (matches Python).
+        am.tones_len = 0;
+        am.tones[0] = 0;
+        int disconnected = 0;
 
-            self.wait_for(SerialEvent.Ring)
-            self.wait_for(SerialEvent.OK)
+        am_send_command_and_wait_ok(&am, "AT&F");
+        am_send_command_and_wait_ok(&am, "ATE0");
+        am_send_command_and_wait_ok(&am, "ATH");
+        am_send_command_and_wait_ok(&am, "ATS0=1");
+        am_send_command_and_wait_ok(&am, "AT+FCLASS=8");
+        am_send_command_and_wait_ok(&am, "AT+VLS=0");
 
-            # Play a "Baroque" melody
-            #self.send_command("AT+VTS=[523,659,100],[659,784,100],[784,1047,100]")
+        am_wait_for(&am, SerialEvent_Ring);
+        am_wait_for(&am, SerialEvent_OK);
 
-            # play a baroque (actually!) melody
-            self.play_brandenburg()
+        play_brandenburg(&am);
 
-            while len(self.tones) < 4:
-                evt = self.event()
-                if evt == SerialEvent.Disconnect:
-                    disconnected = True
-                    break
-            
-            if not disconnected and self.tones == "1824":
-                self.send_command("AT+VTS=9")
-                print("YAY:\tDoor Unlocked!")
+        while (am.tones_len < 4) {
+            SerialEvent evt = am_event(&am);
+            if (evt == SerialEvent_Disconnect) {
+                disconnected = 1;
+                break;
+            }
+        }
 
-            self.send_command("ATH")
+        if (!disconnected && strcmp(am.tones, "1824") == 0) {
+            am_send_command_and_wait_ok(&am, "AT+VTS=9");
+            printk("YAY:\tDoor Unlocked!\n");
+        }
 
-
-PORT = "/dev/tty.usbmodem246802461"
-BAUD = 115200
-
-ser = serial.Serial(PORT, BAUD, timeout=0)
-am = AnsweringMachine(ser)
-am.run()
+        am_send_command_and_wait_ok(&am, "ATH");
+    }
+}

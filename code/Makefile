@@ -1,9 +1,9 @@
 # makefile copied from other labs 
 
 # for running tests
-PROGS := $(wildcard tests/[0-9]*-test.c)
+# PROGS := $(wildcard tests/[0-9]*-test.c)
 # for when i finish door_unlock_scrpit.c
-# PROGS := app/door_unlock_script.c
+PROGS := app/door_unlock_script.c
 
 # usb stack and cdc driver
 COMMON_SRC += usb/c_dwc2.c
