@@ -23,6 +23,19 @@ typedef struct {
     unsigned tones_len;
 } AnsweringMachine;
 
+static void print_escaped_char(char c) {
+    if (c >= ' ' && c <= '~') {
+        printk("%c", c);
+        return;
+    }
+
+    if (c == '\n') printk("\\n");
+    else if (c == '\r') printk("\\r");
+    else {
+        printk("\\%x", c);
+    }
+}
+
 static void am_consume_prefix(AnsweringMachine* am, unsigned n) {
     if (n == 0) return;
     if (n >= am->buf_len) {
@@ -59,7 +72,7 @@ static SerialEvent am_event(AnsweringMachine* am) {
     int n = cdc_read((char*)tmp, sizeof(tmp));
     if (n > 0) {
         printk("IN:\t");
-        for (int i = 0; i < n; i++) printk("%c", tmp[i]);
+        for (int i = 0; i < n; i++) print_escaped_char(tmp[i]);
         printk("\n");
         am_append_rx(am, tmp, (unsigned)n);
     }
