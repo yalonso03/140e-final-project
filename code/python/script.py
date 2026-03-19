@@ -38,6 +38,10 @@ class AnsweringMachine:
             return SerialEvent.Ring
 
         if self.buffer.startswith(OUT_DTMF) and len(self.buffer) >= 6:
+            # Upon receiving a dial tone, the format the data comes in as is: 
+            #   \0x10 / \0x10 [NUMBER] \0x10 ~ 
+            # with the [NUMBER] being at the 3rd dex
+            # need to ensure buffer length >= 6 because we want to ensure we've pulled the entire DTMF message
             self.tones += chr(self.buffer[3])
             self.buffer = self.buffer[6:]
             return SerialEvent.Tone

@@ -142,6 +142,29 @@ static void am_send_command_and_wait_ok(AnsweringMachine* am, const char* cmd) {
     am_wait_for(am, SerialEvent_OK);
 }
 
+static void play_song(AnsweringMachine* am) {
+    static const char* commands[] = {
+        //"AT+VTS=[100,100,30]",
+        "AT+VTS=[440,440,15]",
+        "AT+VTS=[523,523,15]",
+        "AT+VTS=[587,587,15]",
+        "AT+VTS=[698,698,15]",
+        "AT+VTS=[587,587,15]",
+        "AT+VTS=[523,523,15]",
+        "AT+VTS=[587,587,90]",
+        "AT+VTS=[784,784,60]",
+        "AT+VTS=[698,698,60]",
+        "AT+VTS=[659,659,60]",
+        "AT+VTS=[523,523,60]",
+        "AT+VTS=[587,587,60]"
+    };
+
+    for (unsigned i = 0; i < (unsigned)(sizeof(commands) / sizeof(commands[0])); i++) {
+        am_send_command_and_wait_ok(am, commands[i]);
+    }
+
+}
+
 static void play_brandenburg(AnsweringMachine* am) {
     // Same command list as `code/python/script.py`.
     static const char* commands[] = {
@@ -215,7 +238,8 @@ void notmain(void) {
         am_wait_for(&am, SerialEvent_Ring);
         am_wait_for(&am, SerialEvent_OK);
 
-        play_brandenburg(&am);
+        //play_brandenburg(&am);
+        play_song(&am);
 
         while (am.tones_len < 4) {
             SerialEvent evt = am_event(&am);
@@ -231,5 +255,6 @@ void notmain(void) {
         }
 
         am_send_command_and_wait_ok(&am, "ATH");
+        delay_ms(3000); // just for video
     }
 }

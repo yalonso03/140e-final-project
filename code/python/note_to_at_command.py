@@ -37,6 +37,11 @@ note_to_vts = {
 }
 
 
+layla_riff = [
+    "A4", "C5", "D5", "F5", "D5", "C5", "D5",
+    "G5", "F5", "E5", "C5", "D5"
+]
+
 brandenburg = [
     "G5", "F#5", "G5",
     "D5", "C5", "D5",
@@ -48,7 +53,7 @@ brandenburg = [
     "G4", "A4", "B4", "C#5", "D5", "C#5", "D5", "E5", "D5", "F#5", "D5", "G5"
 ]
 
-for note in brandenburg:
+for note in layla_riff:
     print(note_to_vts[note])
 
 # G F# G 
