@@ -1,12 +1,14 @@
 # Final Project for CS140e: Breaking into Lyman
 *By: Jacob Roberts-Baca (jtrb) and Yasmine Alonso (yalonso)*
 
+![](./img/setup-dawson-style.png)
+
 ## Overview
 Have you ever been locked out of your building at 3am without your ID and didn't want to have to call a friend to wake them up to have them let you in? This project is for you!
 
-Most (all?) Stanford buildings allow people to call any resident from the front door via the landline that we have in our rooms. If the resident dialed picks up, and presses 9, the building unlocks. Our goal for the project was to automate this pickup/dial 9 process so that we always have the option to get into our building in the case of a lockout. You can find all the code in this repo + 
+Most (all?) Stanford buildings allow people to call any resident from the front door via the landline that we have in our rooms. If the resident dialed picks up, and presses 9, the building unlocks. Our goal for the project was to automate this pickup/dial 9 process so that we always have the option to get into our building in the case of a lockout. You can find all the code in this repo.
 
-Take a look at a demo video of our project in action [here](TODO: insert youtube link to demo)!
+Take a look at a demo video of our project in action [here](youtube.com/watch?v=qMFVxF3Dywc&feature=youtu.be)!
 
 ## Usage
 Getting the code (two options):
@@ -20,7 +22,7 @@ Running the program:
 
 Fun note: if you want to not have to hook this up to your laptop, you can provide power to the Pi via a power bank or some other source. Take the SD card out of your pi, and replace `kernel.img` with the door unlock binary. Rename the door unlock binary `kernel.img`. Now, when you put the SD card back in the pi, this door unlock binary will be the first thing to run as soon as the Pi is connected to power. So you can just leave the pi connected to the wall + the power bank and not have to sacrifice your laptop :-)
 
-TODO!!! Insert photo of the setup 
+![](./img/setup.png)
 
 ## Device Information
 We purchased the [StarTech.com 56K USB Dial-up & Fax Modem](https://www.amazon.com/StarTech-com-56K-USB-Dial-up-Modem/dp/B01MYLE06I/ref=sr_1_3?adgrpid=186021838763&dib=eyJ2IjoiMSJ9.lOJFuKbl03QJ-b8_dLbA5NXidxTwK6leb7jUiJoYlaSd_dUE94DD7mpQcyeycpGeqLbOnP1CrJP1OzI3cjTgVVKRI1UwIhmBumshoiOpNvg2eirTV-xI_Fxb8i5DtLFVOjQk2EZz9HHD2Sv2hqipOnoGQ6KBCT34Gw_13Dq198yKg6vLdmqFuGmE8NA8GgFP88Z8QQiBFGoB-UbqWHNljAWATzQbbJciq0K4jWohBV4.MRYsZAyG5VYTQs6eqbouZAPLQpWQm2AI6dITGzoVOg0&dib_tag=se&hvadid=779581331944&hvdev=c&hvexpln=0&hvlocphy=9031915&hvnetw=g&hvocijid=6400171205119250179--&hvqmt=b&hvrand=6400171205119250179&hvtargid=kwd-325685945691&hydadcr=24139_13533938_2335427&keywords=startech+usb+fax+modem&mcid=f4f95e7e5b8b3dbbb3c93d3d9d484415&qid=1773169012&sr=8-3) off of Amazon which allows us to send/receive commands (pick up phone, dial 9, hang up phone, etc.) to masquerade our Pi as a telephone.
