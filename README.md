@@ -21,7 +21,9 @@ Running the program:
 - Then, simply run `pi-install app/door_unlock_script.bin`. 
 
 Fun note: if you want to not have to hook this up to your laptop, you can provide power to the Pi via a power bank or some other source. Take the SD card out of your pi, and replace `kernel.img` with the door unlock binary. Rename the door unlock binary `kernel.img`. Now, when you put the SD card back in the pi, this door unlock binary will be the first thing to run as soon as the Pi is connected to power. So you can just leave the pi connected to the wall + the power bank and not have to sacrifice your laptop :-)
-
+ 
+Below is an image of our setup, with the Pi connected to a portable charger for power. 
+Power bank --> Pi --> StarTech Modem --> Landline port 
 ![](./img/setup.png)
 
 ## Device Information
@@ -42,7 +44,7 @@ If you're curious about how it works, we have a python implementation available 
 ## The USB stack
 First, a massive thank you to Tianle Yu for his [documentation on building a USB Host Stack for DWC2](https://sites.tianleyu.com/~unics/cs140e/usb.md)! Without him, this would have not been possible!
 
-The modem we use needs to communicate with the Pi over USB, which we do not currently have the support for. So, we needed to build a driver and a USB host stack for the DWC2 controller (hardware component inside the broadcom that allows us to send USB information).
+The modem we use needs to communicate with the Pi over USB, which we do not currently have the support for. So, we needed to build a driver and a USB host stack for the DWC2 controller (hardware component inside the broadcom that allows us to send USB information). Implementing this gave us the OSey part of our project that we needed.
 
 ==== Highest Level ====
 - `app/door_unlock_script.c` implements the main application that can be run on the pi to constantly keep an eye out for calls to the landline + unlock the door.
