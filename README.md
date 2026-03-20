@@ -8,7 +8,8 @@ Have you ever been locked out of your building at 3am without your ID and didn't
 
 Most (all?) Stanford buildings allow people to call any resident from the front door via the landline that we have in our rooms. If the resident dialed picks up, and presses 9, the building unlocks. Our goal for the project was to automate this pickup/dial 9 process so that we always have the option to get into our building in the case of a lockout. You can find all the code in this repo.
 
-Take a look at a demo video of our project in action [here](youtube.com/watch?v=qMFVxF3Dywc&feature=youtu.be)!
+Take a look at a skit demo video of our project in action [here](youtube.com/watch?v=qMFVxF3Dywc&feature=youtu.be)!
+And [here](https://youtu.be/A7pM5v7Wlb0) is a view into the AT commands/responses that are sent/received by the Pi through the modem (if connected to a laptop and can send this over UART). Our slides from our presentation can be viewed [here](https://office365stanford-my.sharepoint.com/:p:/g/personal/yalonso_stanford_edu/IQCXLsSwK1hyTpUtikpJ8OeAAcfXLR2-sWrSOVVw9kGk5OE?e=2WUH6b).
 
 ## Usage
 Getting the code (two options):
@@ -20,7 +21,7 @@ Running the program:
 - Run `make` in `code/`. This will produce `door_unlock_script.bin`.
 - Then, simply run `pi-install app/door_unlock_script.bin`. 
 
-Fun note: if you want to not have to hook this up to your laptop, you can provide power to the Pi via a power bank or some other source. Take the SD card out of your pi, and replace `kernel.img` with the door unlock binary. Rename the door unlock binary `kernel.img`. Now, when you put the SD card back in the pi, this door unlock binary will be the first thing to run as soon as the Pi is connected to power. So you can just leave the pi connected to the wall + the power bank and not have to sacrifice your laptop :-)
+Note: if you want to not have to hook this up to your laptop, you can provide power to the Pi via a power bank or some other source. Take the SD card out of your pi, and replace `kernel.img` with the door unlock binary. Rename the door unlock binary `kernel.img`. Now, when you put the SD card back in the pi, this door unlock binary will be the first thing to run as soon as the Pi is connected to power. So you can just leave the pi connected to the wall + the power bank and not have to sacrifice your laptop :-)
  
 Below is an image of our setup, with the Pi connected to a portable charger for power. 
 Power bank --> Pi --> StarTech Modem --> Landline port 
@@ -37,7 +38,18 @@ Relevant documentation:
 - [Modem product listing](https://www.startech.com/en-us/networking-io/usb56kemh2?srsltid=AfmBOop4A9Q6g-aUonfiW6FAP7FHi1NitRrnLda2GFplWlGbtjo3gUif). The technical specifications portion of this made us feel decently confident pre-purchasing that our idea would work, as it says it supports DTMF (Dual Tone Multi Frequency, not the bad bunny song) signaling.
 
 ## Application 
-!!TODO: write about the AT commands, the process in app/door_unlock_script.c, the password for security, other fun things you can do (e.g. playing brandenburg on the speakers down there at the keypad)
+Our application that controls the modem from the Pi performs an infinite loop of the following: 
+- Initialize the modem via the following commands:
+    - `AT&F`: Hard reset the state of the modem
+    - `ATE0`: Disables echoing of all output
+    - `ATH`: Hang up the phone to ensure we're in a hung-up state
+    - `ATS0=1`: Enable auto-pickup after 1 ring
+    - `AT+FCLASS=8`: Set modem into voice mode (required for DTMF tones)
+    - `AT+VLS=0`: Voice line select -- tell modem how transmit/receive audio should be routed
+- Play a little jingle (via sending `AT+VTS` commands of various frequencies) to indicate to the user that it's time to enter the passcode
+- Receive entered tones/numbers from the user, keeping track of them in a buffer
+- If the inputted passcode matches the secret passcode, send `AT+VTS=9` (a 9 dial tone) to unlock the door
+- If it doesn't, hang up, and the user can try again.
 
 If you're curious about how it works, we have a python implementation available too (see: `python/script.py`) which might be easier to get a fast understanding of how the application works! 
 
@@ -47,12 +59,14 @@ First, a massive thank you to Tianle Yu for his [documentation on building a USB
 The modem we use needs to communicate with the Pi over USB, which we do not currently have the support for. So, we needed to build a driver and a USB host stack for the DWC2 controller (hardware component inside the broadcom that allows us to send USB information). Implementing this gave us the OSey part of our project that we needed.
 
 ==== Highest Level ====
-- `app/door_unlock_script.c` implements the main application that can be run on the pi to constantly keep an eye out for calls to the landline + unlock the door.
-- `usb/cdc_acm.c` implements the driver that allows the Pi to treat the modem as a serial port. We use functions here in our application code to send the necessary AT commands.
+- `app/door_unlock_script.c` implements the main application (described above) that can be run on the pi to constantly keep an eye out for calls to the landline + unlock the door. 
+- `usb/cdc_acm.c` implements the driver that allows the Pi to treat the modem as a serial port. Exposes the `cdc_read()` and `cdc_write()` functions which are used to communicate with the modem over USB (e.g. sending and receiving `AT` commands).
     - Helpful documentation for this part:
         - [Universal Serial Bus Class Definitions for Communications Devices](https://www.usb.org/document-library/class-definitions-communication-devices-12). Download the zip linked here to get the PDF for errata/docs 
-- `usb/usb_core.c` !!TODO. We use functions here in our application code to initialize the modem device: figure out that it exists, give it an address, configures it, and figures out what endpoints it has available (for the phone modem, relevant ones are BULK IN (to receive info from the modem), BULK OUT (to send AT commands to the modem), and then a control endpoint to send USB control transfers)
-- `usb/usb_transfer.c` implements (1) bulk USB transfers (sending data over USB). Used by read/write functionality in `cdc_acm.c`. Also implementes (2) control transfers (commands for configuration, device setup. done over control endpoint. e.g. SETUP/DATA/STATUS). Translates these transfers into operations on dwc2 host channels.
+- `usb/usb_core.c` We use functions here in our application code to initialize the modem device: figure out that it exists, give it an address, configure it, and figure out what endpoints the modem has available. A critical assumption made by the functions here (specifically the `usb_enumerate()` function which discovers the modem device connected via USB) are that there is **only a single USB device connected to the Pi**. This simplifying assumption made our code much smaller and easier, and is fine for the sake of this project. The endpoints we care about are:
+    - Control endpoint, #0: has an in and an out. We use this endpoint to configure the modem's settings.
+    - Bulk endpoint, #1: again, has an in and an out. Allows us to send/receive data to the modem.
+    - There are other endpoints (isochronous endpoint, interrupts endpoint), but we don't need these for our project, so we disregarded them completely.
+- `usb/usb_transfer.c` implements (1) bulk USB transfers (via a shared DMA buffer, shared with the dwc2 layer described below), which are used by read/write functionality in `cdc_acm.c`. Also implementes (2) control transfers (commands for configuration, device setup. done over control endpoint. e.g. SETUP/DATA/STATUS). Translates these transfers into operations on dwc2 host channels.  
 - `usb/dwc2.c` lowest level of the stack. Interacts with the DWC2 controller (hardware component inside of the Broadcom2835 chip on the Pi that allows us to send USB packets) via MMIO register accessing. The functions implemented here initialize the hardware, configure host channels and fifos, and do the actual packet sending that actually send out usb info.
-
 ==== Lowest Level ====
