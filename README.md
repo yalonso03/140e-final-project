@@ -8,7 +8,7 @@ Have you ever been locked out of your building at 3am without your ID and didn't
 
 Most (all?) Stanford buildings allow people to call any resident from the front door via the landline that we have in our rooms. If the resident dialed picks up, and presses 9, the building unlocks. Our goal for the project was to automate this pickup/dial 9 process so that we always have the option to get into our building in the case of a lockout. You can find all the code in this repo.
 
-Take a look at a skit demo video of our project in action [here](youtube.com/watch?v=qMFVxF3Dywc&feature=youtu.be)!
+Take a look at a skit demo video of our project in action [here](https://www.youtube.com/watch?v=qMFVxF3Dywc)!
 And [here](https://youtu.be/A7pM5v7Wlb0) is a view into the AT commands/responses that are sent/received by the Pi through the modem (if connected to a laptop and can send this over UART). Our slides from our presentation can be viewed [here](https://office365stanford-my.sharepoint.com/:p:/g/personal/yalonso_stanford_edu/IQCXLsSwK1hyTpUtikpJ8OeAAcfXLR2-sWrSOVVw9kGk5OE?e=2WUH6b).
 
 ## Usage
