@@ -1,13 +1,11 @@
 #include "a2_usb_core.h"
 
-#define USB_MAX_DESC 512  // big enough for most config descriptor trees
+#define USB_MAX_DESC 512 
 
 // stash the CDC control interface number during parsing
-// the CDC ACM code uses this to send class requests 
 static uint8_t g_cdc_ctrl_if = 0; // remember which interface is CDC control
 
 uint8_t usb_cdc_ctrl_interface(void) {
-    // tiny accessor so drivers do not poke globals
     return g_cdc_ctrl_if;
 }
 

@@ -1,4 +1,4 @@
-# Python version of script that 
+# Python version of app/door_unlock_script.c, potentially easier to understand
 from enum import Enum
 import serial
 

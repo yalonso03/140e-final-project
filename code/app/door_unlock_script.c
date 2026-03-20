@@ -142,7 +142,8 @@ static void am_send_command_and_wait_ok(AnsweringMachine* am, const char* cmd) {
     am_wait_for(am, SerialEvent_OK);
 }
 
-static void play_song(AnsweringMachine* am) {
+static void play_layla_riff(AnsweringMachine* am) {
+    // at commands for playing intro to layla riff
     static const char* commands[] = {
         //"AT+VTS=[100,100,30]",
         "AT+VTS=[440,440,15]",
@@ -239,7 +240,7 @@ void notmain(void) {
         am_wait_for(&am, SerialEvent_OK);
 
         //play_brandenburg(&am);
-        play_song(&am);
+        play_layla_riff(&am);
 
         while (am.tones_len < 4) {
             SerialEvent evt = am_event(&am);

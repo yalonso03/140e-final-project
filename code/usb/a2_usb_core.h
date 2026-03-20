@@ -3,7 +3,7 @@
 
 #include "b_usb_transfer.h"
 
-// Descriptor types (USB spec Table 9-5)
+// Descriptor types (USB spec Table 9-5 on pg 251)
 #define USB_DESC_DEVICE        1
 #define USB_DESC_CONFIG        2
 #define USB_DESC_INTERFACE     4
