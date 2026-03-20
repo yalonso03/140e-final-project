@@ -69,4 +69,5 @@ The modem we use needs to communicate with the Pi over USB, which we do not curr
     - There are other endpoints (isochronous endpoint, interrupts endpoint), but we don't need these for our project, so we disregarded them completely.
 - `usb/usb_transfer.c` implements (1) bulk USB transfers (via a shared DMA buffer, shared with the dwc2 layer described below), which are used by read/write functionality in `cdc_acm.c`. Also implementes (2) control transfers (commands for configuration, device setup. done over control endpoint. e.g. SETUP/DATA/STATUS). Translates these transfers into operations on dwc2 host channels.  
 - `usb/dwc2.c` lowest level of the stack. Interacts with the DWC2 controller (hardware component inside of the Broadcom2835 chip on the Pi that allows us to send USB packets) via MMIO register accessing. The functions implemented here initialize the hardware, configure host channels and fifos, and do the actual packet sending that actually send out usb info.
+
 ==== Lowest Level ====
